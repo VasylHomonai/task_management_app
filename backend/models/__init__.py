@@ -1,0 +1,9 @@
+from sqlalchemy.orm import relationship
+from .base import Base
+from .user import User
+from .task import Task
+
+
+User.tasks = relationship("Task", order_by=Task.id, back_populates="user")
+
+__all__ = ["Base", "User", "Task"]

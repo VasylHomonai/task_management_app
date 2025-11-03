@@ -1,0 +1,40 @@
+# Ігноруємо локальні залежності
+node_modules/
+.venv/
+
+# Python кеш
+__pycache__/
+*.pyc
+*.pyo
+
+# Git
+.git
+
+# Логи
+*.log
+
+# IDE/системні файли
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+
+# Ігноруємо будь-які тимчасові файли
+*.tmp
+*.swp
+*.bak
+
+# Документація та зайві файли
+*.md
+*.txt
+
+# Ігнорувати сам Dockerfile та .dockerignore
+Dockerfile
+.dockerignore
+
+# Env файли
+.env
+.env.*
+
+# Ігноруємо сервіс метрик
+frontend-metrics

@@ -1,0 +1,22 @@
+filebeat.inputs:
+  - type: filestream
+    id: docker-logs
+    enabled: true
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container: ~
+    processors:
+      - add_docker_metadata: ~
+
+filebeat.modules:
+  - module: nginx
+    access:
+      enabled: true
+      var.paths: ["/logs/nginx/access.log"]
+    error:
+      enabled: true
+      var.paths: ["/logs/nginx/error.log"]
+
+output.logstash:
+  hosts: ["logstash:5044"]

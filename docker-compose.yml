@@ -1,0 +1,244 @@
+x-postgres-env: &postgres-env
+  POSTGRES_DB: app_db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+
+x-http-healthcheck: &http-healthcheck
+  test: [ "CMD-SHELL", "pg_isready -U limited_user -d app_db || exit 1" ]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      <<: [*postgres-env]
+    networks:
+      - task-network
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - db_password
+      - limited_user_password
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+
+  backend:
+    build: ./backend
+    container_name: backend-python
+    env_file:
+      - ./backend/.env
+    networks:
+      - task-network
+    ports:
+      - "5000:5000"
+    depends_on:
+      - database
+    secrets:
+      - limited_user_password
+    environment:
+      # пароль підтягнеться в entrypoint.sh
+      DATABASE_URL: ""
+    entrypoint: ["/app/app/entrypoint.sh"]
+    command: ["python", "run.py"]
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test:
+        - CMD-SHELL
+        - >
+          python -c "import urllib.request, sys; 
+          sys.exit(0 if urllib.request.urlopen('http://localhost:5000/api/health/full').getcode() == 200 else 1)"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-react
+    networks:
+      - task-network
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:3000"]
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: nginx
+    networks:
+      - task-network
+    ports:
+      - "80:80"
+      - "443:443"     # 443 порт для https, працює з самопідписаним сертифікатом
+    volumes:
+      - ./logs/nginx:/var/log/nginx   # <-- змонтуємо локальну папку на /var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD-SHELL", "curl -k https://localhost/ -f || exit 1"]
+
+  prometheus:
+    build: ./prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - task-network
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+
+  grafana:
+    build: ./grafana
+    container_name: grafana
+    ports:
+      - "3033:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - task-network
+    restart: always
+    healthcheck:
+      <<: *http-healthcheck
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health" ]
+
+  frontend-metrics:
+    build: ./frontend/frontend-metrics
+    container_name: frontend-metrics
+    networks:
+      - task-network
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test:
+        - "CMD-SHELL"
+        - >
+          node -e "
+          require('http').get('http://localhost:3001/', r =>
+            r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - task-network
+    command:
+      - --docker_only=true              # моніторить лише Docker-контейнери.
+      - --housekeeping_interval=10s     # збирає дані кожні 10 секунд.
+      - --allow_dynamic_housekeeping    # дозволяє cAdvisor підлаштовувати інтервал при потребі.
+      - --logtostderr                   # логи пишуться у stderr контейнера.
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.5
+    container_name: elastic
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - task-network
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test: [ "CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1" ]
+
+  logstash:
+    build: ./logstash
+    container_name: logstash
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "5044:5044"  # для beats input
+    networks:
+      - task-network
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD-SHELL", "curl -fs http://localhost:9600/?pretty | grep -Eq '\"status\" : \"(green|yellow)\"'"]
+
+  filebeat:
+    build: ./filebeat
+    container_name: filebeat
+    user: root
+    depends_on:
+      logstash:
+        condition: service_healthy
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs/nginx:/logs/nginx    # для доступу логів модуля nginx
+    networks:
+      - task-network
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD-SHELL", "filebeat test config -c /usr/share/filebeat/filebeat.yml"]
+      timeout: 25s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.1.5
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - task-network
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  limited_user_password:
+    file: ./secrets/limited_user_password.txt
+
+volumes:
+  db_data:
+
+networks:
+  task-network:
+    driver: bridge

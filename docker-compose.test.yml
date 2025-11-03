@@ -1,0 +1,102 @@
+x-postgres-env: &postgres-env
+  POSTGRES_DB: app_db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+
+x-http-healthcheck: &http-healthcheck
+  test: [ "CMD-SHELL", "pg_isready -U limited_user -d app_db || exit 1" ]
+  interval: 15s
+  timeout: 10s
+  retries: 3
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: postgres-test
+    environment:
+      <<: [*postgres-env]
+    networks:
+      - test-net
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - db_password
+      - limited_user_password
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+
+  backend:
+    build: ./backend
+    container_name: backend-python-test
+    env_file:
+      - ./backend/.env
+    networks:
+      - test-net
+    ports:
+      - "5000"
+    depends_on:
+      - database
+    secrets:
+      - limited_user_password
+    environment:
+      # пароль підтягнеться в entrypoint.sh
+      DATABASE_URL: ""
+    entrypoint: ["/app/app/entrypoint.sh"]
+    command: ["python", "run.py"]
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test:
+        - CMD-SHELL
+        - >
+          python -c "import urllib.request, sys; 
+          sys.exit(0 if urllib.request.urlopen('http://localhost:5000/api/health/full').getcode() == 200 else 1)"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-react-test
+    networks:
+      - test-net
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      <<: *http-healthcheck
+      test:
+        - "CMD-SHELL"
+        - >
+          wget -q --spider --server-response http://frontend:3000/api/tasks/public 2>&1 |
+          grep HTTP/ | awk '{print $2}' | grep 200 || exit 1
+
+  selenium:
+    build: ./selenium
+    container_name: selenium-test
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - test-net
+    healthcheck:
+      <<: *http-healthcheck
+      test: [ "CMD-SHELL", "curl -s http://localhost:4444/wd/hub/status | grep 'ready' || exit 1" ]
+
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  limited_user_password:
+    file: ./secrets/limited_user_password.txt
+
+volumes:
+  db_data:
+
+networks:
+  test-net:
+    driver: bridge

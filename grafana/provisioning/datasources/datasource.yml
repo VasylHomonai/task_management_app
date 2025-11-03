@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+    # Як Grafana буде кешувати відповіді
+    jsonData:
+      timeInterval: 30s        # мінімальний інтервал між точками
+      queryTimeout: 60s        # таймаут для довгих запитів
+      httpMethod: POST         # краще ніж GET, коли великі запити
+
+    # Дозволяє змінювати datasource через UI, якщо треба підправити.
+    editable: true
