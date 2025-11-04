@@ -86,4 +86,5 @@ POST запит `http://localhost:5000/api/users/register`
   "password": "test123"
 }
 ```
-В БД створиться новий користувач: https://prnt.sc/pHinXyW2b5c_
+В БД створиться новий користувач: https://prnt.sc/lgP4YWSJPeuK
+
