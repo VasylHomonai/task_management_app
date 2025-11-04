@@ -148,7 +148,7 @@ DELETE → `http://localhost:5000/api/tasks/<id>`
 Після успішної роботи з API можна перейти до веб-інтерфейсу, щоб переглянути задачі: https://prnt.sc/JLwBSfUSETjQ
 
 ### Моніторинг застосунку через Prometheus і Grafana
-Після запуску Prometheus за адресою `http://localhost:9090/` можна перевірити, що всі налаштовані джерела метрик (jobs) підключені та успішно передають дані. 
+Після запуску **Prometheus** за адресою `http://localhost:9090/` можна перевірити, що всі налаштовані джерела метрик (jobs) підключені та успішно передають дані. 
 Prometheus збирає метрики з бекенда (Flask), фронтенда (Node.js) та контейнерів (cAdvisor), що дозволяє відстежувати використання ресурсів і продуктивність сервісів.  
 Для перевірки достатньо виконати кілька запитів у вкладці Graph:   
 
@@ -162,5 +162,24 @@ Prometheus збирає метрики з бекенда (Flask), фронтен
    ```plaintext
    process_resident_memory_bytes
    ```
-Результат: https://prnt.sc/Kh6SpLpZ2RVz
+Результат: https://prnt.sc/Kh6SpLpZ2RVz  
+
+Після запуску **Grafana** за адресою `http://localhost:3033/` можна створювати власні дашборди або переглядати готові метрики.  
+При першому вході використовується стандартна авторизація: Логін: `admin` та Пароль: `admin`  
+У проєкті Grafana налаштована через механізм provisioning, який автоматично створює необхідні дашборди під час запуску контейнера.   
+За замовчуванням додаються такі дашборди: https://prnt.sc/zvCb_14xZDkc  
+1️⃣ flask_http_request_total.json — моніторинг HTTP-запитів у Flask: https://prnt.sc/FGOtWKrhFyze  
+2️⃣ memory_monitoring.json — відстеження використання пам’яті процесів: https://prnt.sc/xtHrBcGZls0s  
+3️⃣ nodejs_active_handles_total.json — активні дескриптори у Node.js: https://prnt.sc/a1WldjaRT2wx  
+4️⃣ process_cpu_seconds_total.json — моніторинг навантаження на CPU: https://prnt.sc/OPpW0s5Jd8yV  
+
+### Log Monitoring Stack (ELK + Filebeat)
+Після запуску Kibana за адресою `http://localhost:5601/app/management/data/index_management/indices` перевіряється працездатність лог-стека, який включає сервіси Filebeat, Logstash, Elasticsearch та Kibana.  
+Цей стек забезпечує централізований збір логів із Docker-контейнерів, їх обробку, індексацію та візуалізацію.  
+
+1️⃣ Після успішного підключення всі зібрані логи потрапляють до Elasticsearch, де автоматично створюються індекси у форматі: docker-logs-YYYY.MM.DD https://prnt.sc/X1CkTKKaOfcg  
+2️⃣ Перейди до розділу: `http://localhost:5601/app/discover` та натисни Create data view https://prnt.sc/czByLk6U-LDU  
+3️⃣ У полі Index pattern введи: docker-logs-* і збережи: https://prnt.sc/bt5L0hVFAsYv  
+4️⃣ Після створення data view відкриються всі зібрані логи в реальному часі — це підтверджує, що ланцюг Filebeat → Logstash → Elasticsearch → Kibana працює коректно.  https://prnt.sc/GqH6aAr0cgw6  
+5️⃣ Наприклад, щоб переглянути всі 404 помилки з бекенду, достатньо задати фільтри: `container.name.keyword: backend-python` та `message : 404` https://prnt.sc/7nVvC7vB7RSq
 
