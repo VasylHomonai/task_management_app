@@ -6,10 +6,11 @@ COPY filebeat.yml /usr/share/filebeat/filebeat.yml
 
 # Встановлюємо root права для файла, як вимагає Filebeat
 USER root
-RUN chown root:root /usr/share/filebeat/filebeat.yml
+RUN chown root:root /usr/share/filebeat/filebeat.yml && \
+    chmod 600 /usr/share/filebeat/filebeat.yml
 
 # Запускаємо Filebeat від користувача filebeat
-# USER filebeat
+USER filebeat
 
 # Запускаємо Filebeat
 CMD ["filebeat", "-e", "-c", "/usr/share/filebeat/filebeat.yml"]
