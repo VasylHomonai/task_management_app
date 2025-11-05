@@ -19,7 +19,10 @@ def test_frontend():
 
     try:
         # Відкриваємо сторінку -- http та порт frontend-react-test.
+        # Для Windows/Mac використовується в url: host.docker.internal
         url = "http://host.docker.internal:3000/api/tasks/public"
+        # Для Linux використовується в url: host.docker.internal
+        # url = "http://frontend-react-test:3000/api/tasks/public"
         driver.get(url)
 
         # Чекаємо поки з'явиться елемент з текстом або просто body
