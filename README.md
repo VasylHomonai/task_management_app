@@ -177,12 +177,12 @@ Prometheus збирає метрики з бекенда (Flask), фронтен
 Після запуску Kibana за адресою `http://localhost:5601/app/management/data/index_management/indices` перевіряється працездатність лог-стека, який включає сервіси Filebeat, Logstash, Elasticsearch та Kibana.  
 Цей стек забезпечує централізований збір логів із Docker-контейнерів, їх обробку, індексацію та візуалізацію.  
 
-1️⃣ Після успішного підключення всі зібрані логи потрапляють до Elasticsearch, де автоматично створюються індекси у форматі: docker-logs-YYYY.MM.DD https://prnt.sc/X1CkTKKaOfcg  
-2️⃣ Перейди до розділу: `http://localhost:5601/app/discover` та натисни Create data view https://prnt.sc/czByLk6U-LDU  
-3️⃣ У полі Index pattern введи: docker-logs-* і збережи: https://prnt.sc/bt5L0hVFAsYv  
-4️⃣ Після створення data view відкриються всі зібрані логи в реальному часі — це підтверджує, що ланцюг Filebeat → Logstash → Elasticsearch → Kibana працює коректно.  https://prnt.sc/GqH6aAr0cgw6  
-5️⃣ Логи Nginx: Налаштовано окреме логування для Nginx через Filebeat, який читає файли access.log та error.log з директорії на хості `logs/nginx` і передає їх у Elasticsearch.  
-Щоб переглянути логи Nginx, у Kibana можна виконувати запити за полем event.dataset:  
+1️⃣ Після успішного підключення всі зібрані логи потрапляють до Elasticsearch, де автоматично створюються індекси у форматі: `docker-logs-YYYY.MM.DD`. https://prnt.sc/X1CkTKKaOfcg  
+2️⃣ Перейди до розділу: `http://localhost:5601/app/discover` та натисни `Create data view`. https://prnt.sc/czByLk6U-LDU  
+3️⃣ У полі `Index pattern` введи: `docker-logs-*` і збережи. https://prnt.sc/bt5L0hVFAsYv  
+4️⃣ Після створення data view відкриються всі зібрані логи в реальному часі — це підтверджує, що ланцюг `Filebeat → Logstash → Elasticsearch → Kibana` працює коректно.  https://prnt.sc/GqH6aAr0cgw6  
+5️⃣ Логи Nginx: Налаштовано окреме логування для Nginx через Filebeat, який читає файли `access.log` та `error.log` з директорії на хості `logs/nginx` і передає їх у Elasticsearch.  
+Щоб переглянути логи Nginx, у Kibana можна виконувати запити за полем `event.dataset`:  
    - Для access.log: `event.dataset : "nginx.access"` https://prnt.sc/rjhK6620zicr 
    - Для error.log: `event.dataset : "nginx.error"` https://prnt.sc/QQjndiHoD_RV  
 
