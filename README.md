@@ -391,7 +391,7 @@ Selenium автоматизує сценарії користувача, що з
 │  └─ logstash.conf
 │
 ├─ nginx/                           # Proxy-сервер Nginx: редирект HTTP→HTTPS і маршрутизація запитів між фронтендом і бекендом
-│  ├─ Dockerfile
+│  ├─ Dockerfile                    # Multi-stage build: білд фронтенду всередині контейнера і налаштування Nginx
 │  ├─ entrypoint.sh                 # Генерує самопідписаний SSL-сертифікат і запускає сервер
 │  └─ nginx.conf
 │
