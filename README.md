@@ -181,7 +181,12 @@ Prometheus збирає метрики з бекенда (Flask), фронтен
 2️⃣ Перейди до розділу: `http://localhost:5601/app/discover` та натисни Create data view https://prnt.sc/czByLk6U-LDU  
 3️⃣ У полі Index pattern введи: docker-logs-* і збережи: https://prnt.sc/bt5L0hVFAsYv  
 4️⃣ Після створення data view відкриються всі зібрані логи в реальному часі — це підтверджує, що ланцюг Filebeat → Logstash → Elasticsearch → Kibana працює коректно.  https://prnt.sc/GqH6aAr0cgw6  
-5️⃣ Наприклад, щоб переглянути всі 404 помилки з бекенду, достатньо задати фільтри: `container.name.keyword: backend-python` та `message : 404` https://prnt.sc/7nVvC7vB7RSq
+5️⃣ Логи Nginx: Налаштовано окреме логування для Nginx через Filebeat, який читає файли access.log та error.log з директорії на хості `logs/nginx` і передає їх у Elasticsearch.  
+Щоб переглянути логи Nginx, у Kibana можна виконувати запити за полем event.dataset:  
+   - Для access.log: `event.dataset : "nginx.access"` https://prnt.sc/rjhK6620zicr 
+   - Для error.log: `event.dataset : "nginx.error"` https://prnt.sc/QQjndiHoD_RV  
+
+6️⃣ Наприклад, щоб переглянути всі 404 помилки з бекенду, достатньо задати фільтри: `container.name.keyword: backend-python` та `message : 404` https://prnt.sc/7nVvC7vB7RSq
 
 ## ✅ Тестування
 ### Юніт-тести бекенду
